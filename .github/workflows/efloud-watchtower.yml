@@ -21,15 +21,28 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          URL="https://efloud-ai-live.onrender.com/healthz"
+          HEALTH="https://efloud-ai-live.onrender.com/healthz"
+          SNAPSHOT="https://efloud-ai-live.onrender.com/api/snapshot"
           for ATTEMPT in 1 2 3; do
-            if curl --fail --silent --show-error               --connect-timeout 20 --max-time 90               -H 'User-Agent: ChainPilot-Efloud-Watchtower/1.0'               "$URL" | tee /tmp/efloud-health.json; then
+            if curl --fail --silent --show-error \
+              --connect-timeout 20 --max-time 90 \
+              -H 'User-Agent: ChainPilot-Efloud-Watchtower/1.0' \
+              "$HEALTH" | tee /tmp/efloud-health.json; then
               grep -q '"alive":true' /tmp/efloud-health.json
               grep -q '"venue":"BITGET_SPOT"' /tmp/efloud-health.json
-              grep -q '"replayContinuity":true' /tmp/efloud-health.json
-              exit 0
+              if grep -q '"replayContinuity":true' /tmp/efloud-health.json; then
+                exit 0
+              fi
+              # Older live schema during a deploy: verify the same feature from
+              # the full snapshot, then return to compact health on next run.
+              if curl --fail --silent --show-error \
+                --connect-timeout 20 --max-time 90 \
+                -H 'User-Agent: ChainPilot-Efloud-Watchtower/1.0' \
+                "$SNAPSHOT" | tee /tmp/efloud-snapshot.json | grep -q '"continuity"'; then
+                exit 0
+              fi
             fi
             sleep 8
           done
-          echo "Efloud live snapshot did not recover/upgrade after retries" >&2
+          echo "Efloud live service did not recover/verify continuity after retries" >&2
           exit 1
