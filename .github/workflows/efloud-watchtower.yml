@@ -1,0 +1,30 @@
+name: Keep Efloud live research warm
+
+on:
+  schedule:
+    # Offset from the top of the hour to reduce GitHub scheduler congestion.
+    - cron: '3-58/5 * * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    timeout-minutes: 4
+    steps:
+      - name: Wake and verify the read-only Efloud live service
+        shell: bash
+        run: |
+          set -euo pipefail
+          URL="https://efloud-ai-live.onrender.com/healthz"
+          for ATTEMPT in 1 2 3; do
+            if curl --fail --silent --show-error               --connect-timeout 20 --max-time 90               -H 'User-Agent: ChainPilot-Efloud-Watchtower/1.0'               "$URL" | tee /tmp/efloud-health.json; then
+              grep -q '"alive":true' /tmp/efloud-health.json
+              exit 0
+            fi
+            sleep 8
+          done
+          echo "Efloud health endpoint did not recover after retries" >&2
+          exit 1
