@@ -1,6 +1,9 @@
 name: Keep Efloud live research warm
 
 on:
+  push:
+    branches: [main]
+    paths: ['.github/workflows/efloud-watchtower.yml']
   schedule:
     # Offset from the top of the hour to reduce GitHub scheduler congestion.
     - cron: '3-58/5 * * * *'
